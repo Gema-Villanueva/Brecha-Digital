@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cierra la brecha digital — España</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg-dark: #1a1b2e;
+      --bg-card: #252740;
+      --accent: #00d9a5;
+      --accent-dim: #00a87a;
+      --risk-high: #ff6b6b;
+      --risk-medium: #ffd93d;
+      --risk-low: #00d9a5;
+      --text: #e8e9f0;
+      --text-muted: #8b8da6;
+      --border: #3d3f5c;
+    }
+    body {
+      font-family: 'Outfit', system-ui, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: var(--bg-dark);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    .container { max-width: 1400px; margin: 0 auto; padding: 0; }
+    .layout { display: flex; flex-direction: row; min-height: 100vh; }
+    .map-column {
+      flex: 0 0 50%;
+      min-width: 320px;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      border-right: 1px solid var(--border);
+    }
+    .settings-column {
+      flex: 1;
+      min-width: 320px;
+      padding: 1rem 1.25rem;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+    header { text-align: center; margin-bottom: 0.75rem; }
+    header h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.25rem 0; color: var(--accent); }
+    header .tagline { font-size: 0.85rem; color: var(--text-muted); margin: 0; }
+    .map-column header { text-align: left; }
+
+    #spain-map {
+      height: 100%;
+      min-height: 420px;
+      flex: 1;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+      background: var(--bg-card);
+    }
+    #spain-map.leaflet-container { font-family: 'Outfit', system-ui, sans-serif; }
+
+    .leaflet-tooltip.region-label {
+      background: rgba(26, 27, 46, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+      text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+      pointer-events: none;
+      letter-spacing: 0.02em;
+    }
+
+    .region-block {
+      background: var(--bg-card);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border);
+    }
+    .region-block h2 { font-size: 1rem; margin: 0 0 0.5rem 0; color: var(--text-muted); }
+    .region-block .region-name { font-size: 1.2rem; font-weight: 700; color: var(--accent); }
+    .region-block .region-name.empty { color: var(--text-muted); font-weight: 400; }
+
+    .block {
+      background: var(--bg-card);
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border);
+    }
+    .block h2 { font-size: 1.05rem; margin: 0 0 1rem 0; color: var(--text); }
+    label { display: block; margin-bottom: 1rem; }
+    label span { display: block; margin-bottom: 0.4rem; font-size: 0.9rem; color: var(--text-muted); }
+    label span strong { color: var(--text); }
+    input[type="range"] { width: 100%; height: 8px; accent-color: var(--accent); border-radius: 4px; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+    .card {
+      background: var(--bg-card);
+      border-radius: 14px;
+      padding: 1.25rem;
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--text-muted);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+    .card-internet { border-left-color: #5b8def; }
+    .card-high { border-left-color: var(--risk-high); }
+    .card-medium { border-left-color: var(--risk-medium); }
+    .card-low { border-left-color: var(--risk-low); }
+    .card-priority { border-left-color: #a78bfa; }
+    .card-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 0.35rem; }
+    .card-value { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+    .card-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+    .progress-block {
+      background: var(--bg-card);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border);
+    }
+    .progress-block h2 { font-size: 1rem; margin: 0 0 0.75rem 0; color: var(--text-muted); }
+    .progress-bar-wrap { height: 12px; background: var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 0.5rem; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--risk-high), var(--risk-medium), var(--risk-low)); border-radius: 6px; transition: width 0.3s ease; }
+    .progress-legend { font-size: 0.85rem; color: var(--text-muted); }
+    .progress-legend strong { color: var(--accent); }
+
+    .hint { padding: 0.6rem 0.75rem; background: rgba(255, 217, 61, 0.15); border-radius: 8px; font-size: 0.9rem; margin-top: 0.5rem; border-left: 3px solid var(--risk-medium); color: var(--text); }
+    .hint.success { background: rgba(0, 217, 165, 0.15); border-left-color: var(--risk-low); color: var(--accent-dim); }
+    #hints { margin-top: 0.5rem; }
+
+    .no-region-msg { color: var(--text-muted); font-size: 0.95rem; padding: 0.5rem 0; }
+    @media (max-width: 900px) {
+      .layout { flex-direction: column; }
+      .map-column { min-height: 360px; border-right: none; border-bottom: 1px solid var(--border); }
+      #spain-map { min-height: 360px; }
+      .settings-column { max-height: none; }
+    }
+    @media (max-width: 480px) {
+      #spain-map { min-height: 280px; }
+      .map-column { min-height: 280px; padding: 0.75rem; }
+      .settings-column { padding: 0.75rem 1rem; }
+      .cards { grid-template-columns: 1fr; }
+      header h1 { font-size: 1.35rem; }
+    }
+    html { overflow-x: hidden; }
+    body { overflow-x: hidden; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="layout">
+      <aside class="map-column">
+        <header>
+          <h1>Cierra la brecha digital</h1>
+          <p class="tagline">Elige una comunidad en el mapa y mejora sus indicadores.</p>
+        </header>
+        <div id="spain-map"></div>
+      </aside>
+      <main class="settings-column">
+    <section class="region-block">
+      <h2>Región seleccionada</h2>
+      <p class="region-name empty" id="current-region-name">Haz clic en un territorio del mapa</p>
+    </section>
+
+    <section class="block" id="indicators-block">
+      <h2>Indicadores del distrito</h2>
+      <p class="no-region-msg" id="no-region-msg">Selecciona una comunidad en el mapa para editar sus indicadores.</p>
+      <div id="indicators-content" style="display: none;">
+        <label>
+          <span>Ingreso (renta per cápita): <strong id="v-income">1500</strong> €</span>
+          <input type="range" id="income" min="500" max="3000" value="1500" />
+        </label>
+        <label>
+          <span>Educación (nivel 1–10): <strong id="v-education">5</strong></span>
+          <input type="range" id="education" min="1" max="10" step="0.1" value="5" />
+        </label>
+        <label>
+          <span>Desempleo (%): <strong id="v-unemployment">12</strong>%</span>
+          <input type="range" id="unemployment" min="2" max="25" step="0.5" value="12" />
+        </label>
+      </div>
+    </section>
+
+    <section class="cards" id="cards-section" style="display: none;">
+      <div class="card card-internet">
+        <div class="card-title">Nivel de internet</div>
+        <div class="card-value" id="result-internet">—</div>
+        <div class="card-subtitle">Índice de acceso previsto</div>
+      </div>
+      <div class="card" id="card-risk">
+        <div class="card-title">Nivel de riesgo</div>
+        <div class="card-value" id="result-risk">—</div>
+        <div class="card-subtitle">Riesgo de exclusión digital</div>
+      </div>
+      <div class="card card-priority">
+        <div class="card-title">Prioridad de ayuda</div>
+        <div class="card-value" id="result-priority">—</div>
+        <div class="card-subtitle" id="result-priority-sub">—</div>
+      </div>
+    </section>
+
+    <section class="progress-block">
+      <h2>Progreso en España</h2>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-bar" style="width: 0%;"></div>
+      </div>
+      <p class="progress-legend"><strong id="regions-low-count">0</strong> de <span id="regions-total">0</span> regiones con riesgo bajo. Objetivo: llevar todas a prioridad baja.</p>
+    </section>
+
+    <section class="block" id="hints-block" style="display: none;">
+      <h2>Mejora el distrito</h2>
+      <p>Sube el <strong>ingreso</strong> y la <strong>educación</strong>, y baja el <strong>desempleo</strong> para mejorar el acceso digital.</p>
+      <div id="hints"></div>
+    </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script>
+    const GEOJSON_URL = 'https://raw.githubusercontent.com/codeforgermany/click_that_hood/main/public/data/spain-communities.geojson';
+    const GEOJSON_TO_DISPLAY = {
+      'Andalucia': 'Andalucía', 'Aragon': 'Aragón', 'Asturias': 'Asturias', 'Baleares': 'Balears',
+      'Canarias': 'Canarias', 'Cantabria': 'Cantabria', 'Castilla-Leon': 'Castilla y León',
+      'Castilla-La Mancha': 'Castilla-La Mancha', 'Cataluña': 'Cataluña', 'Valencia': 'Comunitat Valenciana',
+      'Extremadura': 'Extremadura', 'Galicia': 'Galicia', 'Madrid': 'Madrid', 'Murcia': 'Murcia',
+      'Navarra': 'Navarra', 'Pais Vasco': 'País Vasco', 'La Rioja': 'La Rioja', 'Ceuta': 'Ceuta', 'Melilla': 'Melilla'
+    };
+    const DEFAULT_INCOME = 1500, DEFAULT_EDU = 5, DEFAULT_UNEMP = 12;
+
+    const INTERCEPT = 0, COEF_INCOME = 0.3, COEF_UNEMP = -2, COEF_EDU = 5;
+    const THRESHOLD_HIGH = 40, THRESHOLD_MEDIUM = 70;
+
+    function predictInternet(income, unemployment, education) {
+      return INTERCEPT + COEF_INCOME * income + COEF_UNEMP * unemployment + COEF_EDU * education;
+    }
+    function getPriority(access) {
+      if (access < THRESHOLD_HIGH) return 'High';
+      if (access < THRESHOLD_MEDIUM) return 'Medium';
+      return 'Low';
+    }
+    function getRisk(access) {
+      if (access < 40) return { text: 'Alto', level: 'high' };
+      if (access < 70) return { text: 'Medio', level: 'medium' };
+      return { text: 'Bajo', level: 'low' };
+    }
+
+    const riskColors = { high: '#ff6b6b', medium: '#ffd93d', low: '#00d9a5' };
+    const REGION_PALETTE = [
+      '#4a90d9', '#e85d75', '#50c878', '#c9a227', '#9b59b6', '#1abc9c', '#e67e22', '#3498db',
+      '#e74c3c', '#2ecc71', '#f39c12', '#8e44ad', '#16a085', '#d35400', '#2980b9', '#27ae60',
+      '#c0392b', '#7f8c8d', '#34495e'
+    ];
+    const sortedRegionNames = Object.values(GEOJSON_TO_DISPLAY).sort();
+    const regionColorByIndex = {};
+    sortedRegionNames.forEach(function(name, i) {
+      regionColorByIndex[name] = REGION_PALETTE[i % REGION_PALETTE.length];
+    });
+    const regions = {};
+    let selectedRegion = null;
+    let map = null;
+    let geoLayer = null;
+    let layerByDisplayName = {};
+
+    function getDisplayName(geojsonName) {
+      return GEOJSON_TO_DISPLAY[geojsonName] || geojsonName;
+    }
+    function getGeojsonName(displayName) {
+      const entry = Object.entries(GEOJSON_TO_DISPLAY).find(([, v]) => v === displayName);
+      return entry ? entry[0] : displayName;
+    }
+
+    function ensureRegion(displayName) {
+      if (!regions[displayName]) {
+        regions[displayName] = { income: DEFAULT_INCOME, education: DEFAULT_EDU, unemployment: DEFAULT_UNEMP };
+      }
+      return regions[displayName];
+    }
+
+    function getRegionColor(displayName) {
+      return regionColorByIndex[displayName] || REGION_PALETTE[0];
+    }
+
+    function styleRegion(feature, selected) {
+      const displayName = getDisplayName(feature.properties.name);
+      ensureRegion(displayName);
+      const color = getRegionColor(displayName);
+      return {
+        fillColor: color,
+        color: selected ? '#fff' : '#2d2e44',
+        weight: selected ? 3 : 1.5,
+        fillOpacity: selected ? 0.9 : 0.75,
+        opacity: 1
+      };
+    }
+
+    function onEachFeature(feature, layer) {
+      const displayName = getDisplayName(feature.properties.name);
+      layerByDisplayName[displayName] = layer;
+      ensureRegion(displayName);
+      var center = layer.getBounds().getCenter();
+      layer.bindTooltip(displayName, {
+        permanent: true,
+        direction: 'center',
+        className: 'region-label',
+        offset: [0, 0]
+      }).openTooltip(center);
+      layer.on({
+        click: function () {
+          selectedRegion = displayName;
+          syncSlidersFromRegion();
+          updateUI();
+          updateMapStyles();
+        }
+      });
+    }
+
+    function updateMapStyles() {
+      if (!geoLayer) return;
+      geoLayer.eachLayer(function (layer) {
+        const displayName = getDisplayName(layer.feature.properties.name);
+        const selected = selectedRegion === displayName;
+        layer.setStyle(styleRegion(layer.feature, selected));
+      });
+    }
+
+    function syncSlidersFromRegion() {
+      if (!selectedRegion) return;
+      const d = regions[selectedRegion];
+      document.getElementById('income').value = d.income;
+      document.getElementById('education').value = d.education;
+      document.getElementById('unemployment').value = d.unemployment;
+    }
+
+    function updateFromSliders() {
+      if (!selectedRegion) return;
+      const d = regions[selectedRegion];
+      d.income = Number(document.getElementById('income').value);
+      d.education = Number(document.getElementById('education').value);
+      d.unemployment = Number(document.getElementById('unemployment').value);
+    }
+
+    function updateUI() {
+      const nameEl = document.getElementById('current-region-name');
+      const noMsg = document.getElementById('no-region-msg');
+      const indicatorsContent = document.getElementById('indicators-content');
+      const cardsSection = document.getElementById('cards-section');
+      const hintsBlock = document.getElementById('hints-block');
+
+      if (!selectedRegion) {
+        nameEl.textContent = 'Haz clic en un territorio del mapa';
+        nameEl.classList.add('empty');
+        noMsg.style.display = 'block';
+        indicatorsContent.style.display = 'none';
+        cardsSection.style.display = 'none';
+        hintsBlock.style.display = 'none';
+        updateProgress();
+        return;
+      }
+
+      nameEl.textContent = selectedRegion;
+      nameEl.classList.remove('empty');
+      noMsg.style.display = 'none';
+      indicatorsContent.style.display = 'block';
+      cardsSection.style.display = 'grid';
+      hintsBlock.style.display = 'block';
+
+      const d = regions[selectedRegion];
+      document.getElementById('v-income').textContent = d.income;
+      document.getElementById('v-education').textContent = d.education;
+      document.getElementById('v-unemployment').textContent = d.unemployment;
+
+      const access = predictInternet(d.income, d.unemployment, d.education);
+      const priority = getPriority(access);
+      const risk = getRisk(access);
+
+      document.getElementById('result-internet').textContent = access.toFixed(1);
+      document.getElementById('result-risk').textContent = risk.text;
+      document.getElementById('result-priority').textContent = priority;
+      document.getElementById('result-priority-sub').textContent =
+        priority === 'High' ? 'Prioridad urgente' : priority === 'Medium' ? 'Prioridad media' : 'Prioridad baja';
+
+      const cardRisk = document.getElementById('card-risk');
+      cardRisk.className = 'card card-' + risk.level;
+
+      const hintsEl = document.getElementById('hints');
+      const hints = [];
+      if (d.education < 6) hints.push('<div class="hint">Sube el nivel de educación para mejorar el acceso.</div>');
+      if (d.unemployment > 10) hints.push('<div class="hint">Reduce el desempleo para bajar el riesgo digital.</div>');
+      if (d.income < 2000) hints.push('<div class="hint">Mayor renta suele asociarse a mejor acceso.</div>');
+      if (priority === 'Low' && access >= 70) hints.push('<div class="hint success">Esta región tiene buen nivel de acceso digital.</div>');
+      hintsEl.innerHTML = hints.join('');
+
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const total = Object.keys(regions).length;
+      if (total === 0) {
+        document.getElementById('regions-total').textContent = '0';
+        document.getElementById('regions-low-count').textContent = '0';
+        document.getElementById('progress-bar').style.width = '0%';
+        return;
+      }
+      let lowCount = 0;
+      for (const name of Object.keys(regions)) {
+        const d = regions[name];
+        const access = predictInternet(d.income, d.unemployment, d.education);
+        if (getRisk(access).level === 'low') lowCount++;
+      }
+      document.getElementById('regions-total').textContent = total;
+      document.getElementById('regions-low-count').textContent = lowCount;
+      document.getElementById('progress-bar').style.width = Math.round((lowCount / total) * 100) + '%';
+    }
+
+    function update() {
+      updateFromSliders();
+      updateUI();
+      updateMapStyles();
+      updateProgress();
+    }
+
+    function initMap() {
+      map = L.map('spain-map', { center: [40.2, -3.5], zoom: 5, zoomControl: true });
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd', maxZoom: 20
+      }).addTo(map);
+    }
+
+    fetch(GEOJSON_URL)
+      .then(function (r) { return r.json(); })
+      .then(function (geojson) {
+        initMap();
+        geoLayer = L.geoJSON(geojson, {
+          style: function (feature) { return styleRegion(feature, false); },
+          onEachFeature: onEachFeature
+        }).addTo(map);
+        updateMapStyles();
+        updateProgress();
+      })
+      .catch(function () {
+        document.getElementById('spain-map').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-muted);padding:1rem;">No se pudo cargar el mapa. Comprueba la conexión.</div>';
+      });
+
+    document.getElementById('income').addEventListener('input', update);
+    document.getElementById('income').addEventListener('change', update);
+    document.getElementById('education').addEventListener('input', update);
+    document.getElementById('education').addEventListener('change', update);
+    document.getElementById('unemployment').addEventListener('input', update);
+    document.getElementById('unemployment').addEventListener('change', update);
+    updateUI();
+  </script>
+</body>
+</html>
